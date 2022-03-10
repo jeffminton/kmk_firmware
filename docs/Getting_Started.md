@@ -4,8 +4,6 @@
 KMK is a keyboard focused layer that sits on top of [CircuitPython](https://circuitpython.org/). As such, it should work with most [boards that support CircuitPython](https://circuitpython.org/downloads). It is best to use the last stable version (>5.0).
 Known working and recommended devices can be found [here](Officially_Supported_Microcontrollers.md)
 
-We are also providing a keyboard optimized version of CircuitPython (simplified to cope with memory limits of certain boards and with a selection of preinstalled relevant modules). If you're wondering why use KMKPython rather than barebone CircuitPython, we tried to compare both approaches [here](kmkpython_vs_circuitpython.md)
-
 <br>
 
 ## TL;DR Quick start guide
@@ -55,7 +53,6 @@ if __name__ == '__main__':
 
 ### You're extremely lucky and you have a fully supported keyboard
 If your keyboard and microcontroller are officially supported, simply visit the page for your files, and dropping them on the root of the "flash drive". Those pages can be found [here](https://github.com/KMKfw/kmk_firmware/tree/master/boards). You will need the `kb.py` and `main.py`. More advanced instructions can be found [here](config_and_keymap.md).
-Please note that we recommend using [KMKPython](https://github.com/KMKfw/kmkpython) for these boards as it is optimized for them. If using Circuitpython and NOT KMKPython, you will also need [boot.py](https://github.com/KMKfw/kmk_firmware/blob/master/boot.py)
 
 ### You've got another, maybe DIY, board and want to customise KMK for it  
 First, be sure to understand how your device work, and particularly its specific matrix configuration. You can have a look [here](http://pcbheaven.com/wikipages/How_Key_Matrices_Works/) or read the [guide](https://docs.qmk.fm/#/hand_wire) provided by the QMK team for handwired keyboards
@@ -70,7 +67,7 @@ And to go even further:
 - [ModTap](modtap.md) allow you to customize the way a key behaves wether it is tapped or hold, and [TapDance](tapdance.md) depending on the number of times it is pressed
 
 Want to have fun features such as RGB, split keyboards and more? Check out what builtin [modules](modules.md) and [extensions](extensions.md) can do!
-You can also get ideas from the various [user examples](https://github.com/KMKfw/kmk_firmware/tree/master/user_keymaps) that we provide and dig into our [documentation](https://github.com/KMKfw/kmk_firmware/tree/master/docs).
+You can also get ideas from the various [user examples](https://github.com/KMKfw/kmk_firmware/tree/master/user_keymaps) that we provide and dig into our [documentation](README.md).
 
 <br>
 

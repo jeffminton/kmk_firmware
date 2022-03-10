@@ -1,11 +1,11 @@
 import neopixel
 
-import time
 from math import e, exp, pi, sin
 
 from kmk.extensions import Extension
 from kmk.handlers.stock import passthrough as handler_passthrough
 from kmk.keys import make_key
+from kmk.kmktime import PeriodicTimer
 
 rgb_config = {}
 
@@ -24,8 +24,6 @@ class AnimationModes:
 
 class RGB(Extension):
     pos = 0
-    time = int(time.monotonic() * 10)
-    intervals = (30, 20, 10, 5)
 
     def __init__(
         self,
@@ -47,8 +45,8 @@ class RGB(Extension):
         reverse_animation=False,
         user_animation=None,
         disable_auto_write=False,
-        loopcounter=0,
         pixels=None,
+        refresh_rate=60,
     ):
         if pixels is None:
             self.pixels = neopixel.NeoPixel(
@@ -81,7 +79,9 @@ class RGB(Extension):
         self.reverse_animation = reverse_animation
         self.user_animation = user_animation
         self.disable_auto_write = disable_auto_write
-        self.loopcounter = loopcounter
+        self.refresh_rate = refresh_rate
+
+        self._substep = 0
 
         make_key(
             names=('RGB_TOG',), on_press=self._rgb_tog, on_release=handler_passthrough
@@ -153,7 +153,7 @@ class RGB(Extension):
         return
 
     def during_bootup(self, sandbox):
-        return
+        self._timer = PeriodicTimer(1000 // self.refresh_rate)
 
     def before_matrix_scan(self, sandbox):
         return
@@ -172,10 +172,6 @@ class RGB(Extension):
 
     def on_powersave_disable(self, sandbox):
         self._do_update()
-
-    @staticmethod
-    def time_ms():
-        return int(time.monotonic() * 1000)
 
     def hsv_to_rgb(self, hue, sat, val):
         '''
@@ -293,7 +289,7 @@ class RGB(Extension):
         Increases hue by step amount rolling at 360 and returning to 0
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.hue_step
 
         self.hue = (self.hue + step) % 360
@@ -306,7 +302,7 @@ class RGB(Extension):
         Decreases hue by step amount rolling at 0 and returning to 360
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.hue_step
 
         if (self.hue - step) <= 0:
@@ -322,7 +318,7 @@ class RGB(Extension):
         Increases saturation by step amount stopping at 100
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.sat_step
 
         if self.sat + step >= 100:
@@ -338,7 +334,7 @@ class RGB(Extension):
         Decreases saturation by step amount stopping at 0
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.sat_step
 
         if (self.sat - step) <= 0:
@@ -354,7 +350,7 @@ class RGB(Extension):
         Increases value by step amount stopping at 100
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.val_step
         if (self.val + step) >= 100:
             self.val = 100
@@ -369,7 +365,7 @@ class RGB(Extension):
         Decreases value by step amount stopping at 0
         :param step:
         '''
-        if not step:
+        if step is None:
             step = self.val_step
         if (self.val - step) <= 0:
             self.val = 0
@@ -425,49 +421,36 @@ class RGB(Extension):
         if self.effect_init:
             self._init_effect()
 
-        if self.animation_mode is not AnimationModes.STATIC_STANDBY:
-            self.loopcounter += 1
-            if self.loopcounter >= 7 and self.enable:
-                self.loopcounter = 0
-                if self.animation_mode == AnimationModes.BREATHING:
-                    self.effect_breathing()
-                elif self.animation_mode == AnimationModes.RAINBOW:
-                    self.effect_rainbow()
-                elif self.animation_mode == AnimationModes.BREATHING_RAINBOW:
-                    self.effect_breathing_rainbow()
-                elif self.animation_mode == AnimationModes.STATIC:
-                    self.effect_static()
-                elif self.animation_mode == AnimationModes.KNIGHT:
-                    self.effect_knight()
-                elif self.animation_mode == AnimationModes.SWIRL:
-                    self.effect_swirl()
-                elif self.animation_mode == AnimationModes.USER:
-                    self.user_animation(self)
-                elif self.animation_mode == AnimationModes.STATIC_STANDBY:
-                    pass
-                else:
-                    self.off()
-                if self.loopcounter >= 7:
-                    self.loopcounter = 0
+        if self.animation_mode is AnimationModes.STATIC_STANDBY:
+            return
+
+        if self.enable and self._timer.tick():
+            self._animation_step()
+            if self.animation_mode == AnimationModes.BREATHING:
+                self.effect_breathing()
+            elif self.animation_mode == AnimationModes.RAINBOW:
+                self.effect_rainbow()
+            elif self.animation_mode == AnimationModes.BREATHING_RAINBOW:
+                self.effect_breathing_rainbow()
+            elif self.animation_mode == AnimationModes.STATIC:
+                self.effect_static()
+            elif self.animation_mode == AnimationModes.KNIGHT:
+                self.effect_knight()
+            elif self.animation_mode == AnimationModes.SWIRL:
+                self.effect_swirl()
+            elif self.animation_mode == AnimationModes.USER:
+                self.user_animation(self)
+            elif self.animation_mode == AnimationModes.STATIC_STANDBY:
+                pass
+            else:
+                self.off()
 
     def _animation_step(self):
-        interval = self.time_ms() - self.time
-        if interval >= max(self.intervals):
-            self.time = self.time_ms()
-            return max(self.intervals)
-        if interval in self.intervals:
-            return interval
-        return None
+        self._substep += self.animation_speed / 4
+        self._step = int(self._substep)
+        self._substep -= self._step
 
     def _init_effect(self):
-        if (
-            self.animation_mode == AnimationModes.BREATHING
-            or self.animation_mode == AnimationModes.BREATHING_RAINBOW
-        ):
-            self.intervals = (30, 20, 10, 5)
-        elif self.animation_mode == AnimationModes.SWIRL:
-            self.intervals = (50, 50)
-
         self.pos = 0
         self.reverse_animation = False
         self.effect_init = False
@@ -491,19 +474,19 @@ class RGB(Extension):
         multip_2 = self.val_limit / (e - 1 / e)
 
         self.val = int(multip_1 * multip_2)
-        self.pos = (self.pos + self.animation_speed) % 256
+        self.pos = (self.pos + self._step) % 256
         self.set_hsv_fill(self.hue, self.sat, self.val)
 
     def effect_breathing_rainbow(self):
-        self.increase_hue(self.animation_speed)
+        self.increase_hue(self._step)
         self.effect_breathing()
 
     def effect_rainbow(self):
-        self.increase_hue(self.animation_speed)
+        self.increase_hue(self._step)
         self.set_hsv_fill(self.hue, self.sat, self.val)
 
     def effect_swirl(self):
-        self.increase_hue(self.animation_speed)
+        self.increase_hue(self._step)
         self.disable_auto_write = True  # Turn off instantly showing
         for i in range(0, self.num_pixels):
             self.set_hsv(
@@ -529,9 +512,9 @@ class RGB(Extension):
             self.reverse_animation = not self.reverse_animation
 
         if self.reverse_animation:
-            self.pos -= self.animation_speed / 2
+            self.pos -= self._step / 2
         else:
-            self.pos += self.animation_speed / 2
+            self.pos += self._step / 2
 
         # Show final results
         self.disable_auto_write = False  # Resume showing changes
